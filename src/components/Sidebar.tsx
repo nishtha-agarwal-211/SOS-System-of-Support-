@@ -8,7 +8,7 @@ interface SidebarProps {
 
 export const Sidebar = ({ selectedType, onSelect, isFocused }: SidebarProps) => {
     return (
-        <div className={`flex flex-col gap-2 p-3 border-r h-full w-full transition-all overflow-y-auto custom-scrollbar ${isFocused ? 'border-r-2 border-r-teal-400 shadow-[4px_0_20px_rgba(6,214,160,0.2)]' : 'border-r border-gray-700/50'}`} style={{ background: 'var(--panel-bg)' }}>
+        <div className={`flex flex-col gap-2 p-3 border-r w-full transition-all ${isFocused ? 'border-r-2 border-r-teal-400 shadow-[4px_0_20px_rgba(6,214,160,0.2)]' : 'border-r border-gray-700/50'}`} style={{ background: 'var(--panel-bg)' }}>
             <div className="text-xs mb-2 uppercase tracking-widest px-2 flex items-center gap-2" style={{ color: 'var(--text-bright)' }}>
                 <span style={{ color: 'var(--accent-primary)' }}>◆</span> Categories {isFocused && <span className="blink" style={{ color: 'var(--accent-primary)' }}>_</span>}
             </div>

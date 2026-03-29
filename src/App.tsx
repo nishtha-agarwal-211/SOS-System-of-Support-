@@ -291,50 +291,59 @@ ${top5.map((r, i) => `<div class="resource"><div class="name">${i + 1}. ${r.name
           <span>☰ Categories</span>
           <span>{mobileSidebarOpen ? '▲' : '▼'}</span>
         </button>
-        {/* `sidebar-body` is hidden when sidebar is collapsed on mobile */}
-        <div className="sidebar-body flex flex-col flex-1 overflow-hidden">
+        {/* `sidebar-body` scrolls as one unit so map + buttons are always reachable */}
+        <div className="sidebar-body flex flex-col flex-1 overflow-y-auto custom-scrollbar">
         <Sidebar
           selectedType={!showSavedOnly ? selectedType : null}
           onSelect={(t) => { setSelectedType(t); setShowSavedOnly(false); setSearchQuery(''); setFocusArea('SIDEBAR'); }}
           isFocused={focusArea === 'SIDEBAR' && !showSavedOnly}
         />
 
-        {/* Sidebar Footer: Map & Saved */}
-        <div className="mt-auto p-4 border-t border-gray-800 space-y-3">
-          {showMap && (
-            <div className="flex justify-center mb-2">
-              <AsciiMap resources={filteredResources} selectedId={null} userLocation={{ x: 5, y: 5 }} />
-            </div>
-          )}
+        {/* Sidebar Footer: Map, Saved, Actions */}
+          <div className="p-4 border-t border-gray-800 space-y-3">
+            {showMap && (
+              <div className="flex justify-center mb-2">
+                <AsciiMap resources={filteredResources} selectedId={null} userLocation={{ x: 5, y: 5 }} />
+              </div>
+            )}
 
-          <button
-            onClick={() => setShowSavedOnly(true)}
-            className={`w-full py-2 px-4 rounded text-sm font-bold tracking-wide uppercase flex items-center justify-between transition-all ${showSavedOnly ? 'bg-amber-900/40 text-amber-400 ring-1 ring-amber-500' : 'text-gray-300 hover:text-amber-400 hover:bg-amber-900/20'}`}
-          >
-            <span>★ Saved Items</span>
-            <span>{favorites.length}</span>
-          </button>
-
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <button onClick={() => setShowSubmission(true)} className="py-1 px-2 border border-teal-600 text-teal-300 rounded text-[10px] hover:bg-teal-900/30 uppercase font-bold">
-              + Add Data
+            <button
+              onClick={() => setShowSavedOnly(true)}
+              className={`w-full py-2 px-4 rounded text-sm font-bold tracking-wide uppercase flex items-center justify-between transition-all ${showSavedOnly ? 'bg-amber-900/40 text-amber-400 ring-1 ring-amber-500' : 'text-gray-300 hover:text-amber-400 hover:bg-amber-900/20'}`}
+            >
+              <span>★ Saved Items</span>
+              <span>{favorites.length}</span>
             </button>
-            <button onClick={clearAllData} className="py-1 px-2 border border-red-700 text-red-400 rounded text-[10px] hover:bg-red-900/30 uppercase font-bold">
-              Reset App
+
+            {/* Volunteer hint */}
+            <div
+              onClick={() => { setSelectedType('volunteer'); setShowSavedOnly(false); setSearchQuery(''); }}
+              style={{ cursor: 'pointer', padding: '8px 12px', border: '1px dashed rgba(251,191,36,0.4)', borderRadius: '8px', background: 'rgba(251,191,36,0.05)' }}
+            >
+              <div style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 'bold', marginBottom: '2px' }}>🤝 VOLUNTEER</div>
+              <div style={{ fontSize: '0.7rem', color: '#9ca3af', lineHeight: '1.4' }}>Click any resource in Volunteers to sign up or generate a message.</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button onClick={() => setShowSubmission(true)} className="py-1 px-2 border border-teal-600 text-teal-300 rounded text-[10px] hover:bg-teal-900/30 uppercase font-bold">
+                + Add Data
+              </button>
+              <button onClick={clearAllData} className="py-1 px-2 border border-red-700 text-red-400 rounded text-[10px] hover:bg-red-900/30 uppercase font-bold">
+                Reset App
+              </button>
+            </div>
+            {/* Fix 9: Demo resource toggle */}
+            <button
+              onClick={() => setShowDemoResources(p => !p)}
+              className={`w-full mt-2 py-1 px-2 rounded text-[10px] uppercase border font-bold transition-colors ${
+                showDemoResources
+                  ? 'border-purple-600 text-purple-300 bg-purple-900/20'
+                  : 'border-gray-600 text-gray-300 hover:text-white hover:border-gray-400'
+              }`}
+            >
+              {showDemoResources ? '◉ Demo Data ON' : '○ Show Demo Data'}
             </button>
           </div>
-          {/* Fix 9: Demo resource toggle */}
-          <button
-            onClick={() => setShowDemoResources(p => !p)}
-            className={`w-full mt-2 py-1 px-2 rounded text-[10px] uppercase border font-bold transition-colors ${
-              showDemoResources
-                ? 'border-purple-600 text-purple-300 bg-purple-900/20'
-                : 'border-gray-600 text-gray-300 hover:text-white hover:border-gray-400'
-            }`}
-          >
-            {showDemoResources ? '◉ Demo Data ON' : '○ Show Demo Data'}
-          </button>
-        </div>
         {/* End sidebar-body */}
         </div>
       </div>
