@@ -2,72 +2,47 @@
 @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
 
 :root {
-  /* Enhanced Retro Terminal Color Palette */
-  --bg-app: #000000;
-  /* Pure black for authentic CRT feel */
+  /* ── Backgrounds ──────────────────────────────── */
+  --bg-app:    #000000;
   --bg-active: #0a0e14;
-  /* Very dark blue-black */
-  --bg-hover: #141a24;
+  --bg-hover:  #141a24;
 
-  /* Brighter Retro Accents */
-  --accent-primary: #00ff9f;
-  /* Bright neon green (main accent) */
-  --accent-secondary: #00d4ff;
-  /* Electric cyan */
-  --accent-tertiary: #ff00ff;
-  /* Vibrant magenta */
-  --accent-dim: #00aa77;
-  /* Dim green for borders */
-  --accent-alert: #ff0055;
-  /* Bright red-pink alert */
-  --accent-yellow: #ffff00;
-  /* Neon yellow */
-
-  /* Enhanced Text Colors */
-  --text-body: #00ff9f;
-  /* Bright green - main text */
-  --text-bright: #ffffff;
-  /* Pure white for emphasis */
-  --text-muted: #00aa77;
-  /* Dimmed green */
-  --text-dim: #005544;
-  /* Very dim green */
-
-  /* Borders */
-  --border-dim: #00aa77;
-  /* Green border */
-  --border-bright: #00ff9f;
-  /* Bright green border */
-
-  /* Retro Font Stack */
-  --font-mono: 'VT323', 'Share Tech Mono', 'Courier New', monospace;
-  --font-size-base: 1.2rem;
-  /* Larger for VT323 readability */
-  --accent-success: #06ffa5;
-  /* Bright neon green */
+  /* ── Brand Accents ────────────────────────────── */
+  --accent-primary:     #06d6a0;   /* teal — main accent        */
+  --accent-secondary:   #00b4d8;   /* electric cyan             */
+  --accent-tertiary:    #ff00ff;   /* magenta                   */
+  --accent-dim:         #00aa77;   /* dim green / borders       */
+  --accent-alert:       #ff0055;   /* bright red-pink alert     */
+  --accent-success:     #06ffa5;
   --accent-success-dim: #05a871;
 
-  /* Typography */
-  --text-body: #f0f4f8;
-  /* Crisp white-blue */
-  --text-muted: #9ca8b8;
-  /* Soft slate */
-  --text-primary: #06d6a0;
-  /* Matches accent */
-  --text-glow: #00fff5;
-  /* Neon cyan for glows */
+  /* ── Text ─────────────────────────────────────── */
+  --text-body:    #f0f4f8;         /* crisp white-blue — body   */
+  --text-primary: #06d6a0;        /* teal — headings/labels    */
+  --text-muted:   #9ca8b8;        /* soft slate                */
+  --text-bright:  #ffffff;
+  --text-dim:     #4a5568;
+  --text-glow:    #00fff5;        /* neon cyan for glow fx     */
 
-  /* Glow & Shadow Effects */
-  --glow-primary: 0 0 20px rgba(6, 214, 160, 0.4), 0 0 40px rgba(6, 214, 160, 0.2);
+  /* ── Borders ──────────────────────────────────── */
+  --border-dim:    #00aa77;
+  --border-bright: #06d6a0;
+
+  /* ── Typography ───────────────────────────────── */
+  --font-mono:      'VT323', 'Share Tech Mono', 'Courier New', monospace;
+  --font-size-base: 1.2rem;
+
+  /* ── Glow & Shadow ────────────────────────────── */
+  --glow-primary:   0 0 20px rgba(6, 214, 160, 0.4), 0 0 40px rgba(6, 214, 160, 0.2);
   --glow-secondary: 0 0 20px rgba(0, 180, 216, 0.4), 0 0 40px rgba(0, 180, 216, 0.2);
-  --glow-alert: 0 0 20px rgba(255, 0, 110, 0.5), 0 0 40px rgba(255, 0, 110, 0.3);
-  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(6, 214, 160, 0.1);
+  --glow-alert:     0 0 20px rgba(255, 0, 110, 0.5), 0 0 40px rgba(255, 0, 110, 0.3);
+  --shadow-lg:      0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(6, 214, 160, 0.1);
 
-  /* Legacy Variable Mapping for compatibility */
-  --terminal-bg: var(--bg-app);
-  --terminal-green: var(--accent-primary);
+  /* ── Legacy compatibility aliases ─────────────── */
+  --terminal-bg:        var(--bg-app);
+  --terminal-green:     var(--accent-primary);
   --terminal-green-dim: var(--accent-dim);
-  --terminal-amber: var(--text-body);
+  --terminal-amber:     var(--text-body);
   --terminal-amber-dim: var(--text-muted);
 }
 
@@ -204,4 +179,54 @@ body {
   50% {
     transform: translateY(-10px);
   }
+}
+
+/* ── Light Mode Theme ──────────────────────────────────────────────────── */
+body.theme-light {
+  --bg-app:    #f0f4f8;
+  --bg-active: #e2e8f0;
+  --bg-hover:  #cbd5e1;
+  --accent-primary:   #0d9488;
+  --accent-secondary: #0284c7;
+  --accent-dim:       #2dd4bf;
+  --text-body:    #1e293b;
+  --text-primary: #0d9488;
+  --text-muted:   #475569;
+  --text-bright:  #000000;
+  --text-dim:     #94a3b8;
+  --border-dim:    #94a3b8;
+  --border-bright: #0d9488;
+  --glow-primary:   0 0 12px rgba(13, 148, 136, 0.25);
+  --shadow-lg:      0 20px 60px rgba(0, 0, 0, 0.12);
+  --terminal-bg:        var(--bg-app);
+  --terminal-green:     var(--accent-primary);
+  --terminal-green-dim: var(--accent-dim);
+  --terminal-amber:     var(--text-body);
+  --terminal-amber-dim: var(--text-muted);
+}
+body.theme-light #root {
+  background: linear-gradient(135deg, #f0f4f8 0%, #e2fbf6 30%, #f0f9ff 70%, #f0f4f8 100%);
+}
+body.theme-light #root::before {
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(13, 148, 136, 0.07) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(2, 132, 199, 0.07) 0%, transparent 50%);
+}
+
+/* ── Emergency High-Contrast Theme ────────────────────────────────────── */
+body.emergency-active #root {
+  background: linear-gradient(135deg, #0a0000 0%, #1a0000 30%, #0d0000 70%, #000000 100%);
+}
+body.emergency-active #root::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  border: 3px solid rgba(255, 23, 68, 0.5);
+  pointer-events: none;
+  animation: emergencyPulse 1.5s ease-in-out infinite;
+  z-index: 9999;
+}
+@keyframes emergencyPulse {
+  0%, 100% { border-color: rgba(255, 23, 68, 0.3); }
+  50%       { border-color: rgba(255, 23, 68, 0.85); }
 }

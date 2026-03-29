@@ -803,3 +803,104 @@
     background-position: 0% 50%;
   }
 }
+
+/* ============================================================
+   Fix 8: Mobile Responsive Layout (< 768px)
+   ============================================================ */
+
+/* Sidebar toggle button — hidden on desktop */
+.mobile-sidebar-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Stack the console layout vertically on mobile */
+  .console-layout {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Sidebar takes full width and is collapsible */
+  .console-sidebar {
+    width: 100% !important;
+    min-width: unset !important;
+    max-height: none !important;
+    border-radius: 12px !important;
+  }
+
+  /* Show the toggle button on mobile */
+  .mobile-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Collapsed sidebar only shows the toggle button */
+  .console-sidebar.collapsed .sidebar-body {
+    display: none;
+  }
+
+  /* Main content takes full width */
+  .console-content {
+    width: 100% !important;
+    flex: none !important;
+    min-height: 60vh;
+  }
+
+  /* Filter row: allow wrapping, prevent horizontal overflow */
+  .filter-row {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Make each filter item shrink/wrap naturally */
+  .filter-row > * {
+    flex-shrink: 0;
+  }
+
+  /* Prevent filter row from overflowing the container */
+  .filter-header {
+    overflow: hidden;
+  }
+
+  /* Purpose screen pills wrap nicely on small screens */
+  .purpose-list {
+    gap: 0.5rem;
+  }
+
+  .purpose-card {
+    padding: 32px 24px;
+  }
+
+  .purpose-title {
+    font-size: 1.8rem;
+  }
+
+  /* Detail view: single-column grid on mobile */
+  .detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Reduce padding on detail view for small screens */
+  .detail-container {
+    padding: 1rem !important;
+  }
+
+  /* Custom scrollbar thinner on mobile */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+}

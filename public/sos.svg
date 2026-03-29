@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background -->
+  <rect width="32" height="32" rx="6" fill="#0f172a"/>
+  <!-- Border frame -->
+  <rect x="1.5" y="1.5" width="29" height="29" rx="5" stroke="#06d6a0" stroke-width="1.5" fill="none"/>
+  <!-- SOS text -->
+  <text x="16" y="21" text-anchor="middle" font-family="monospace, 'Courier New', monospace"
+    font-size="13" font-weight="bold" fill="#06d6a0" letter-spacing="1">SOS</text>
+  <!-- Cursor blink indicator -->
+  <rect x="14" y="24" width="4" height="3" fill="#06d6a0" opacity="0.9"/>
+</svg>

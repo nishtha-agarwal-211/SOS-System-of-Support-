@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { resources } from '../data/resources';
+import { resources, cities } from '../data/resources';
 
 interface CliModeProps {
     onExit: () => void;
@@ -62,13 +62,13 @@ export const CliMode = ({ onExit }: CliModeProps) => {
                     break;
                 case 'list':
                     const city = parts[1];
-                    const validCities = ['mumbai', 'delhi', 'pune'];
-                    if (validCities.includes(city)) {
+                    const validCities = cities.map(c => c.toLowerCase());
+                    if (city && validCities.includes(city)) {
                         const items = resources.filter(r => r.city.toLowerCase() === city);
                         newHistory.push(`Resources in ${city.toUpperCase()}:`);
                         items.slice(0, 5).forEach(m => newHistory.push(`  - ${m.name} (${m.type})`));
                     } else {
-                        newHistory.push('Usage: list [mumbai|delhi|pune]');
+                        newHistory.push(`Usage: list [${validCities.join('|')}]`);
                     }
                     break;
                 default:

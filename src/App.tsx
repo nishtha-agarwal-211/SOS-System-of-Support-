@@ -6,14 +6,21 @@ import { CliMode } from './components/CliMode';
 import { Typewriter } from './components/Typewriter';
 import { ConsentDialog } from './components/ConsentDialog';
 import { ResourceSubmission } from './components/ResourceSubmission';
+import { HelpOverlay } from './components/HelpOverlay';
+import { NotificationBanner } from './components/NotificationBanner';
+import { ResourceDetail } from './components/views/ResourceDetail';
+import { ResourceList } from './components/views/ResourceList';
 import { resources, types, cities } from './data/resources';
 import type { Resource, City, ResourceType } from './data/resources';
 import { Sidebar } from './components/Sidebar';
+import { useSound } from './hooks/useSound';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { useResourceFilter } from './hooks/useResourceFilter';
+import type { TransportMode } from './hooks/useResourceFilter';
 import './App.css';
 
 type ViewState = 'INTRO' | 'PURPOSE' | 'CONSOLE';
 type FocusArea = 'SIDEBAR' | 'CONTENT';
-type TransportMode = 'walking' | 'bus' | 'car';
 
 function App() {
   const [view, setView] = useState<ViewState>('INTRO');
@@ -23,97 +30,78 @@ function App() {
   const [selectedType, setSelectedType] = useState<ResourceType | null>('food');
   const [selectedCity, setSelectedCity] = useState<City>('Mumbai');
   const [viewResource, setViewResource] = useState<Resource | null>(null);
-
-  // User Data State
-  const [userResources, setUserResources] = useState<Resource[]>([]);
   const [showSubmission, setShowSubmission] = useState(false);
 
-  // Lists
-  const [filteredResources, setFilteredResources] = useState<Resource[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  // Global State / Filters
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [favorites, setFavorites] = useState<string[]>([]);
   const [emergencyMode, setEmergencyMode] = useState(false);
   const [filterOpenNow, setFilterOpenNow] = useState(false);
-
-  // New Filters
   const [filterLanguage, setFilterLanguage] = useState<string>('All');
   const [transportMode, setTransportMode] = useState<TransportMode>('walking');
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [showDemoResources, setShowDemoResources] = useState(false);
 
-  // Advanced Features State
+  // UI State
   const [showStats, setShowStats] = useState(false);
   const [isCliMode, setIsCliMode] = useState(false);
-  const [showMap, setShowMap] = useState(false); // Toggle map in console sidebar
-
+  const [showMap, setShowMap] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [showIntroContinue, setShowIntroContinue] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true); // Feature 6: Dark/Light toggle
 
-  // Privacy State
-  const [hasConsented, setHasConsented] = useState<boolean | null>(null); // null = unknown, true = yes, false = no
-
-  // Sound effect ref
-  const audioContext = useRef<AudioContext | null>(null);
   const notificationTimeoutRef = useRef<number | null>(null);
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Load favorites & Consent on mount
+  // ── Hooks ──────────────────────────────────────────────────────────────
+  const {
+    playBeep, playSuccessSound, playAlertSound,
+    playNavigationSound, playSelectSound, playTypeSound,
+  } = useSound();
+
+  const {
+    favorites, userResources, hasConsented,
+    handleConsent, saveFavorites, addUserResource,
+    clearAllData, trackEvent, saveReport,
+  } = useLocalStorage();
+
+  const { filteredResources, selectedIndex, setSelectedIndex } = useResourceFilter({
+    selectedCity, selectedType, searchQuery, emergencyMode,
+    filterOpenNow, filterLanguage, showSavedOnly, showDemoResources,
+    transportMode, favorites, userResources,
+    isActive: view === 'CONSOLE',
+  });
+
+  // ── Service Worker registration ────────────────────────────────────────
   useEffect(() => {
-    // Check consent
-    const consent = localStorage.getItem('crf_consent');
-    if (consent === 'true') setHasConsented(true);
-    else if (consent === 'false') setHasConsented(false);
-    else setHasConsented(null); // Show dialog
-
-    // Load favorites only if consented (or if we want to read-only until explicit deny? Safer to wait)
-    if (consent === 'true') {
-      const saved = localStorage.getItem('crf_favorites');
-      if (saved) setFavorites(JSON.parse(saved));
-
-      const savedResources = localStorage.getItem('crf_user_resources');
-      if (savedResources) setUserResources(JSON.parse(savedResources));
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // SW registration failure is non-fatal in dev mode
+      });
     }
   }, []);
 
-  const handleConsent = (allow: boolean) => {
-    setHasConsented(allow);
-    localStorage.setItem('crf_consent', String(allow));
-    if (!allow) {
-      // Clear any implicit data if they say no
-      localStorage.removeItem('crf_favorites');
-      localStorage.removeItem('crf_analytics');
-      localStorage.removeItem('crf_reports');
-      localStorage.removeItem('crf_user_resources');
-      setFavorites([]);
-      setUserResources([]);
-    }
+  // ── Theme body class sync (Features 6 & 7) ─────────────────────────────
+  useEffect(() => {
+    document.body.classList.toggle('theme-light', !isDarkMode);
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    document.body.classList.toggle('emergency-active', emergencyMode);
+  }, [emergencyMode]);
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+  const showNotification = (msg: string) => {
+    setNotification(msg);
+    if (notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
+    notificationTimeoutRef.current = window.setTimeout(() => setNotification(null), 3000);
   };
 
   const handleAddResource = (res: Resource) => {
-    const updated = [...userResources, res];
-    setUserResources(updated);
-    localStorage.setItem('crf_user_resources', JSON.stringify(updated));
+    addUserResource(res);
     setShowSubmission(false);
     showNotification('Success: Resource added locally.');
-  };
-
-  const clearAllData = () => {
-    if (confirm('Delete ALL local data (Favorites, Stats, Added Resources)?')) {
-      localStorage.clear();
-      window.location.reload();
-    }
-  };
-
-  const showNotification = (msg: string) => {
-    setNotification(msg);
-    if (notificationTimeoutRef.current) {
-      clearTimeout(notificationTimeoutRef.current);
-    }
-    notificationTimeoutRef.current = window.setTimeout(() => {
-      setNotification(null);
-    }, 3000);
   };
 
   const toggleFavorite = (id: string) => {
@@ -121,198 +109,58 @@ function App() {
       if (hasConsented === false) showNotification('Storage disabled by user setting.');
       return;
     }
-    const newFavs = favorites.includes(id)
-      ? favorites.filter(f => f !== id)
-      : [...favorites, id];
-    setFavorites(newFavs);
-    localStorage.setItem('crf_favorites', JSON.stringify(newFavs));
-    playSuccessSound(); // Success melody for favoriting
-    showNotification(favorites.includes(id) ? '> Removed from favorites' : '> Favorite saved locally');
+    const isFav = favorites.includes(id);
+    const newFavs = isFav ? favorites.filter(f => f !== id) : [...favorites, id];
+    saveFavorites(newFavs);
+    playSuccessSound();
+    showNotification(isFav ? '> Removed from favorites' : '> Favorite saved locally');
   };
 
   const reportIssue = (resourceName: string) => {
     const issue = prompt(`Report issue for "${resourceName}":\n(e.g., Wrong number, Moved, Closed)`);
     if (issue) {
-      if (hasConsented) {
-        const reports = JSON.parse(localStorage.getItem('crf_reports') || '[]');
-        reports.push({
-          resource: resourceName,
-          issue,
-          timestamp: new Date().toISOString()
-        });
-        localStorage.setItem('crf_reports', JSON.stringify(reports));
-        showNotification('Thank you — report saved locally.');
-      } else {
-        showNotification('Report NOT saved (Storage disabled).');
-      }
-      playSelectSound(); // Confirmation sound for report
+      saveReport(resourceName, issue);
+      showNotification(hasConsented ? 'Thank you — report saved locally.' : 'Report NOT saved (Storage disabled).');
+      playSelectSound();
     }
   };
 
-  const trackEvent = (metric: 'searches' | 'views' | 'favorites' | 'emergency') => {
-    if (!hasConsented) return;
-    const stats = JSON.parse(localStorage.getItem('crf_analytics') || '{"searches":0,"views":0,"favorites":0,"emergency":0}');
-    stats[metric]++;
-    localStorage.setItem('crf_analytics', JSON.stringify(stats));
+  const shareResource = (r: Resource) => {
+    const text = `${r.name} — ${r.phone} — ${r.address.split(',').slice(0, 2).join(',')} — ${r.hours}`;
+    navigator.clipboard.writeText(text).then(() => {
+      showNotification('> Copied to clipboard!');
+      playSuccessSound();
+    }).catch(() => showNotification('Copy failed. Try manually.'));
   };
 
-  const playBeep = (freq = 400, type: OscillatorType = 'square', duration = 0.05) => {
-    try {
-      if (!audioContext.current) {
-        // @ts-ignore
-        audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      if (audioContext.current?.state === 'suspended') {
-        audioContext.current.resume();
-      }
-
-      const osc = audioContext.current!.createOscillator();
-      const gain = audioContext.current!.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, audioContext.current!.currentTime);
-      gain.gain.setValueAtTime(0.1, audioContext.current!.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.current!.currentTime + duration);
-
-      osc.connect(gain);
-      gain.connect(audioContext.current!.destination);
-      osc.start();
-      osc.stop(audioContext.current!.currentTime + duration);
-    } catch (e) {
-      // Ignore
-    }
+  // Feature 10: Print Emergency Sheet
+  const printEmergencySheet = () => {
+    const top5 = filteredResources.slice(0, 5);
+    if (top5.length === 0) { showNotification('No resources to print.'); return; }
+    const html = `<!DOCTYPE html><html><head><title>SOS Emergency Sheet — ${selectedCity}</title>
+<style>body{font-family:monospace;padding:24px;max-width:600px;margin:0 auto}
+h1{font-size:1.4rem;border-bottom:2px solid #000;padding-bottom:8px}
+.resource{border:1px solid #ccc;padding:12px;margin-bottom:12px;page-break-inside:avoid}
+.name{font-size:1.1rem;font-weight:bold}.phone{color:#0d9488;font-size:1.2rem}
+.detail{color:#555;font-size:0.85rem;margin-top:4px}
+footer{font-size:0.75rem;color:#999;border-top:1px solid #ccc;margin-top:20px;padding-top:8px}
+@media print{button{display:none}}</style></head><body>
+<h1>🆘 SOS Emergency Resource Sheet — ${selectedCity}</h1>
+<p style="color:#666;font-size:0.85rem">Printed from SOS: System of Support | ${new Date().toLocaleDateString('en-IN')}</p>
+${top5.map((r, i) => `<div class="resource"><div class="name">${i + 1}. ${r.name}</div><div class="phone">${r.phone}</div><div class="detail">${r.address}</div><div class="detail">Hours: ${r.hours}</div><div class="detail">Services: ${r.services.slice(0, 3).join(', ')}</div></div>`).join('')}
+<footer>Verified data as of Dec 2025. Call numbers directly — no internet needed.</footer>
+<script>window.onload = () => { window.print(); window.close(); }<\/script></body></html>`;
+    const w = window.open('', '_blank', 'width=700,height=800');
+    if (w) { w.document.write(html); w.document.close(); }
+    else showNotification('Allow pop-ups to print.');
   };
 
-  // Enhanced retro sound effects
-  const playSuccessSound = () => {
-    // Ascending melody for success
-    playBeep(400, 'sine', 0.08);
-    setTimeout(() => playBeep(500, 'sine', 0.08), 80);
-    setTimeout(() => playBeep(600, 'sine', 0.12), 160);
-  };
-
-  const playErrorSound = () => {
-    // Descending tones for error
-    playBeep(300, 'sawtooth', 0.1);
-    setTimeout(() => playBeep(200, 'sawtooth', 0.15), 100);
-  };
-
-  const playAlertSound = () => {
-    // Pulsing alert for emergency mode
-    playBeep(800, 'square', 0.08);
-    setTimeout(() => playBeep(800, 'square', 0.08), 150);
-  };
-
-  const playNavigationSound = () => {
-    // Sharp high beep for navigation
-    playBeep(600, 'sine', 0.03);
-  };
-
-  const playSelectSound = () => {
-    // Two-tone confirmation
-    playBeep(400, 'square', 0.06);
-    setTimeout(() => playBeep(500, 'square', 0.06), 60);
-  };
-
-  const playTypeSound = () => {
-    // Quick tick for typing
-    playBeep(200, 'square', 0.02);
-  };
-
-  const isOpenNow = (hoursStr: string): boolean => {
-    if (!hoursStr) return false;
-    if (hoursStr.includes('24 Hours')) return true;
-    try {
-      const now = new Date();
-      const currentHour = now.getHours();
-
-      const parts = hoursStr.split('-');
-      if (parts.length !== 2) return false;
-
-      const parseTime = (t: string) => {
-        const match = t.match(/(\d+):?(\d+)?\s*(AM|PM)/i);
-        if (!match) return -1;
-        let h = parseInt(match[1]);
-        if (match[3].toUpperCase() === 'PM' && h !== 12) h += 12;
-        if (match[3].toUpperCase() === 'AM' && h === 12) h = 0;
-        return h;
-      };
-
-      const start = parseTime(parts[0]);
-      const end = parseTime(parts[1]);
-
-      if (start === -1 || end === -1) return false;
-
-      if (end < start) {
-        return currentHour >= start || currentHour < end;
-      }
-      return currentHour >= start && currentHour < end;
-    } catch {
-      return false;
-    }
-  };
-
-  // derived languages list
+  // ── Derived languages list ─────────────────────────────────────────────
   const availableLanguages = useMemo(() => {
     const langs = new Set<string>();
     resources.forEach(r => r.languages.forEach(l => langs.add(l)));
     return ['All', ...Array.from(langs).sort()];
   }, []);
-
-
-  // FILTER LOGIC
-  useEffect(() => {
-    if (view === 'CONSOLE') {
-      let matches = [...userResources, ...resources];
-
-      // 1. Filter by City
-      matches = matches.filter(r => r.city === selectedCity);
-
-      // 2. Filter by Saved (if active) or Type
-      if (showSavedOnly) {
-        matches = matches.filter(r => favorites.includes(r.id));
-      } else {
-        // Filter by Type (unless searching globally)
-        if (!searchQuery && selectedType) {
-          matches = matches.filter(r => r.type === selectedType);
-        }
-      }
-
-      // 3. Search Query
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        matches = matches.filter(r =>
-          r.name.toLowerCase().includes(q) ||
-          r.services.join(' ').toLowerCase().includes(q) ||
-          r.type.toLowerCase().includes(q)
-        );
-      }
-
-      // 4. Emergency Mode
-      if (emergencyMode) {
-        matches = matches.sort((a, b) => {
-          if (a.priority === 'High' && b.priority !== 'High') return -1;
-          if (b.priority === 'High' && a.priority !== 'High') return 1;
-          if (a.is_emergency && !b.is_emergency) return -1;
-          if (!a.is_emergency && b.is_emergency) return 1;
-          return 0;
-        });
-      }
-
-      // 5. Open Now
-      if (filterOpenNow) {
-        matches = matches.filter(r => isOpenNow(r.hours));
-      }
-
-      // 6. Language Filter
-      if (filterLanguage !== 'All') {
-        matches = matches.filter(r => r.languages.includes(filterLanguage));
-      }
-
-      setFilteredResources(matches);
-      // Reset index if out of bounds
-      if (selectedIndex >= matches.length) setSelectedIndex(0);
-    }
-  }, [selectedCity, selectedType, searchQuery, emergencyMode, filterOpenNow, filterLanguage, showSavedOnly, favorites, view]);
 
 
   // KEYBOARD HANDLER
@@ -359,44 +207,60 @@ function App() {
           return;
         }
 
-        // Sidebar Navigation
-        if (focusArea === 'SIDEBAR') {
-          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // ← → always change city regardless of focus area
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          const currIdx = cities.indexOf(selectedCity!);
+          let nextIdx = e.key === 'ArrowLeft' ? currIdx - 1 : currIdx + 1;
+          if (nextIdx < 0) nextIdx = cities.length - 1;
+          if (nextIdx >= cities.length) nextIdx = 0;
+          setSelectedCity(cities[nextIdx]);
+          playNavigationSound();
+          return;
+        }
+
+        // ↑ ↓ — sidebar category nav when in SIDEBAR focus OR when content is empty
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          if (focusArea === 'SIDEBAR' || filteredResources.length === 0) {
+            e.preventDefault();
             const currIdx = types.findIndex(t => t.id === selectedType);
             let nextIdx = e.key === 'ArrowUp' ? currIdx - 1 : currIdx + 1;
             if (nextIdx < 0) nextIdx = types.length - 1;
             if (nextIdx >= types.length) nextIdx = 0;
             setSelectedType(types[nextIdx].id);
+            setFocusArea('SIDEBAR');
             if (!showSavedOnly) setSearchQuery('');
-            playNavigationSound(); // Navigation beep
+            playNavigationSound();
+            return;
           }
-          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-            const currIdx = cities.indexOf(selectedCity!);
-            let nextIdx = e.key === 'ArrowLeft' ? currIdx - 1 : currIdx + 1;
-            if (nextIdx < 0) nextIdx = cities.length - 1;
-            if (nextIdx >= cities.length) nextIdx = 0;
-            setSelectedCity(cities[nextIdx]);
-            playNavigationSound(); // Navigation beep
+          // CONTENT navigation
+          if (focusArea === 'CONTENT' && filteredResources.length > 0) {
+            e.preventDefault();
+            setSelectedIndex(p => {
+              const next = e.key === 'ArrowUp'
+                ? (p > 0 ? p - 1 : filteredResources.length - 1)
+                : (p < filteredResources.length - 1 ? p + 1 : 0);
+              // Scroll card into view
+              setTimeout(() => {
+                cardRefs.current.get(next)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }, 0);
+              return next;
+            });
+            playNavigationSound();
+            return;
           }
         }
 
-        // Content Navigation
-        if (focusArea === 'CONTENT') {
-          if (e.key === 'ArrowUp') {
-            setSelectedIndex(p => p > 0 ? p - 1 : filteredResources.length - 1);
-            playNavigationSound(); // Navigation beep
+        // Enter — open selected resource
+        if (e.key === 'Enter' && focusArea === 'CONTENT') {
+          if (filteredResources[selectedIndex]) {
+            setViewResource(filteredResources[selectedIndex]);
+            playSelectSound();
           }
-          if (e.key === 'ArrowDown') {
-            setSelectedIndex(p => p < filteredResources.length - 1 ? p + 1 : 0);
-            playNavigationSound(); // Navigation beep
-          }
-          if (e.key === 'Enter') {
-            if (filteredResources[selectedIndex]) {
-              setViewResource(filteredResources[selectedIndex]);
-              playSelectSound(); // Selection confirmation
-            }
-          }
-          if (e.key === 'o' || e.key === 'O') setFilterOpenNow(p => !p);
+        }
+
+        // O — toggle Open Now filter
+        if ((e.key === 'o' || e.key === 'O') && focusArea === 'CONTENT') {
+          setFilterOpenNow(p => !p);
         }
       }
     };
@@ -408,61 +272,30 @@ function App() {
 
   // ---- Components ----
 
-  const HelpOverlay = () => (
-    <div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
-      <div className="border-4 border-double border-green-500 p-8 w-full max-w-3xl bg-black shadow-lg">
-        <h2 className="text-2xl text-amber-500 font-bold mb-6 border-b border-green-900 pb-2">AVAILABLE COMMANDS</h2>
-        <div className="grid grid-cols-2 gap-8 text-green-300 font-mono text-lg">
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-gray-500 uppercase">Navigation</h3>
-            <div className="flex justify-between"><span>↑ ↓ → ←</span> <span className="text-gray-500">Navigate</span></div>
-            <div className="flex justify-between"><span>Tab</span> <span className="text-gray-500">Switch Area</span></div>
-            <div className="flex justify-between"><span>Enter</span> <span className="text-gray-500">Select</span></div>
-            <div className="flex justify-between"><span>Esc</span> <span className="text-gray-500">Go Back</span></div>
-          </div>
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-gray-500 uppercase">Actions</h3>
-            <div className="flex justify-between"><span>Type 'text'</span> <span className="text-gray-500">Search</span></div>
-            <div className="flex justify-between"><span>O</span> <span className="text-gray-500">Toggle Open Now</span></div>
-            <div className="flex justify-between"><span>F</span> <span className="text-gray-500">Favorite</span></div>
-            <div className="flex justify-between"><span>!</span> <span className="text-gray-500">Emergency Mode</span></div>
-            <div className="flex justify-between"><span>Shift+C</span> <span className="text-gray-500">CLI Mode</span></div>
-          </div>
-        </div>
-        <div className="mt-8 text-center text-gray-500 blink border-t border-green-900 pt-4">
-          Press Esc to close
-        </div>
-      </div>
-    </div>
-  );
-
-  const NotificationBanner = () => {
-    if (!notification) return null;
-    return (
-      <div className="absolute top-0 left-0 right-0 bg-green-900 text-green-100 text-center py-2 font-bold font-mono border-b border-green-500 z-40 animate-pulse">
-        &gt; {notification}
-      </div>
-    );
-  };
-
-  const EmergencyBanner = () => (
-    <div className="bg-red-900 text-white text-center py-2 border-y-2 border-red-500 mb-4 animate-pulse">
-      <div className="font-bold tracking-widest uppercase">EMERGENCY MODE ACTIVE</div>
-      <div className="text-sm">Showing nearest urgent-help resources</div>
-    </div>
-  );
+  // HelpOverlay, NotificationBanner → imported from ./components/
 
 
 
   // ---- Renderers ----
 
   const renderConsole = () => (
-    <div className="flex h-full w-full gap-6">
-      {/* SIDEBAR - 30% */}
-      <div className="w-1/3 min-w-[260px] h-full card bg-slate-900 flex flex-col">
+    // Fix 8: `console-layout` class enables mobile single-column stacking via CSS
+    <div className="console-layout flex h-full w-full gap-6">
+      {/* SIDEBAR — `console-sidebar` class collapses on mobile */}
+      <div className={`console-sidebar w-1/3 min-w-[260px] h-full card bg-slate-900 flex flex-col ${!mobileSidebarOpen ? 'collapsed' : ''}`}>
+        {/* Mobile toggle button — hidden on desktop via CSS */}
+        <button
+          className="mobile-sidebar-toggle"
+          onClick={() => setMobileSidebarOpen(p => !p)}
+        >
+          <span>☰ Categories</span>
+          <span>{mobileSidebarOpen ? '▲' : '▼'}</span>
+        </button>
+        {/* `sidebar-body` is hidden when sidebar is collapsed on mobile */}
+        <div className="sidebar-body flex flex-col flex-1 overflow-hidden">
         <Sidebar
           selectedType={!showSavedOnly ? selectedType : null}
-          onSelect={(t) => { setSelectedType(t); setShowSavedOnly(false); setSearchQuery(''); }}
+          onSelect={(t) => { setSelectedType(t); setShowSavedOnly(false); setSearchQuery(''); setFocusArea('SIDEBAR'); }}
           isFocused={focusArea === 'SIDEBAR' && !showSavedOnly}
         />
 
@@ -476,33 +309,125 @@ function App() {
 
           <button
             onClick={() => setShowSavedOnly(true)}
-            className={`w-full py-2 px-4 rounded text-sm font-bold tracking-wide uppercase flex items-center justify-between transition-all ${showSavedOnly ? 'bg-amber-900/40 text-amber-500 ring-1 ring-amber-500' : 'text-gray-500 hover:text-amber-500 hover:bg-amber-900/20'}`}
+            className={`w-full py-2 px-4 rounded text-sm font-bold tracking-wide uppercase flex items-center justify-between transition-all ${showSavedOnly ? 'bg-amber-900/40 text-amber-400 ring-1 ring-amber-500' : 'text-gray-300 hover:text-amber-400 hover:bg-amber-900/20'}`}
           >
             <span>★ Saved Items</span>
             <span>{favorites.length}</span>
           </button>
 
           <div className="grid grid-cols-2 gap-2 mt-2">
-            <button onClick={() => setShowSubmission(true)} className="py-1 px-2 border border-teal-800 text-teal-500 rounded text-[10px] hover:bg-teal-900/30 uppercase">
+            <button onClick={() => setShowSubmission(true)} className="py-1 px-2 border border-teal-600 text-teal-300 rounded text-[10px] hover:bg-teal-900/30 uppercase font-bold">
               + Add Data
             </button>
-            <button onClick={clearAllData} className="py-1 px-2 border border-red-900 text-red-500 rounded text-[10px] hover:bg-red-900/30 uppercase">
+            <button onClick={clearAllData} className="py-1 px-2 border border-red-700 text-red-400 rounded text-[10px] hover:bg-red-900/30 uppercase font-bold">
               Reset App
             </button>
           </div>
+          {/* Fix 9: Demo resource toggle */}
+          <button
+            onClick={() => setShowDemoResources(p => !p)}
+            className={`w-full mt-2 py-1 px-2 rounded text-[10px] uppercase border font-bold transition-colors ${
+              showDemoResources
+                ? 'border-purple-600 text-purple-300 bg-purple-900/20'
+                : 'border-gray-600 text-gray-300 hover:text-white hover:border-gray-400'
+            }`}
+          >
+            {showDemoResources ? '◉ Demo Data ON' : '○ Show Demo Data'}
+          </button>
+        </div>
+        {/* End sidebar-body */}
         </div>
       </div>
 
-      {/* MAIN CONTENT - 70% */}
-      <div className={`flex-1 h-full flex flex-col relative card p-0 ${focusArea === 'CONTENT' ? 'border-teal-400' : 'border-slate-700'}`}>
+      {/* MAIN CONTENT — `console-content` class ensures full width on mobile */}
+      <div className={`console-content flex-1 h-full flex flex-col relative card p-0 ${focusArea === 'CONTENT' ? 'border-teal-400' : 'border-slate-700'}`}>
 
         {/* Header - Filters */}
-        <div className="flex flex-col p-4 border-b border-gray-800 bg-slate-800/30 gap-4">
+        {/* Fix 8: `filter-header` prevents overflow; `filter-row` wraps on mobile */}
+        <div className="filter-header flex flex-col p-4 border-b border-gray-800 bg-slate-800/30 gap-4">
           {/* Row 1: City & Search */}
           <div className="flex justify-between items-center gap-4">
             <div className="flex items-center gap-4">
-              <span className="text-gray-500 font-bold text-xs uppercase tracking-wider">Region</span>
-              <div className="text-base font-bold text-white bg-slate-800 px-6 py-1.5 rounded border border-slate-700 font-mono">&lt; &nbsp;{selectedCity}&nbsp; &gt;</div>
+              <span className="text-gray-300 font-bold text-xs uppercase tracking-wider">Region</span>
+                <div className="flex items-center gap-1" style={{ position: 'relative', zIndex: 5 }}>
+                  <button
+                    aria-label="Previous city"
+                    onClick={() => {
+                      const idx = cities.indexOf(selectedCity);
+                      const prev = idx <= 0 ? cities.length - 1 : idx - 1;
+                      setSelectedCity(cities[prev]);
+                      playNavigationSound();
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      color: '#06d6a0',
+                      background: 'rgba(26, 31, 53, 0.8)',
+                      border: '1px solid rgba(6, 214, 160, 0.4)',
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      fontFamily: 'inherit',
+                      fontWeight: 'bold',
+                      fontSize: '1rem',
+                      position: 'relative',
+                      zIndex: 5,
+                      userSelect: 'none',
+                      transition: 'color 0.2s, border-color 0.2s, background 0.2s',
+                    }}
+                    title="Previous city (← arrow key)"
+                  >{'<'}</button>
+                  <button
+                    aria-label="Current city, click to cycle"
+                    onClick={() => {
+                      const idx = cities.indexOf(selectedCity);
+                      const next = idx >= cities.length - 1 ? 0 : idx + 1;
+                      setSelectedCity(cities[next]);
+                      playNavigationSound();
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      color: '#ffffff',
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      border: '1px solid rgba(6, 214, 160, 0.35)',
+                      borderRadius: '4px',
+                      padding: '4px 16px',
+                      fontFamily: 'inherit',
+                      fontWeight: 'bold',
+                      fontSize: '1rem',
+                      minWidth: '120px',
+                      textAlign: 'center',
+                      position: 'relative',
+                      zIndex: 5,
+                      userSelect: 'none',
+                      transition: 'border-color 0.2s, background 0.2s',
+                    }}
+                    title="Click to cycle city"
+                  >{selectedCity}</button>
+                  <button
+                    aria-label="Next city"
+                    onClick={() => {
+                      const idx = cities.indexOf(selectedCity);
+                      const next = idx >= cities.length - 1 ? 0 : idx + 1;
+                      setSelectedCity(cities[next]);
+                      playNavigationSound();
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      color: '#06d6a0',
+                      background: 'rgba(26, 31, 53, 0.8)',
+                      border: '1px solid rgba(6, 214, 160, 0.4)',
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      fontFamily: 'inherit',
+                      fontWeight: 'bold',
+                      fontSize: '1rem',
+                      position: 'relative',
+                      zIndex: 5,
+                      userSelect: 'none',
+                      transition: 'color 0.2s, border-color 0.2s, background 0.2s',
+                    }}
+                    title="Next city (→ arrow key)"
+                  >{'>'}</button>
+                </div>
             </div>
 
             <div className="flex-1">
@@ -520,20 +445,20 @@ function App() {
             </div>
           </div>
 
-          {/* Row 2: Toggles */}
-          <div className="flex flex-wrap gap-4 items-center text-xs">
-            <button onClick={() => setFilterOpenNow(p => !p)} className={`px-3 py-1.5 rounded border transition-colors ${filterOpenNow ? 'bg-green-900/30 border-green-500 text-green-400' : 'border-gray-700 text-gray-500 hover:border-gray-500'}`}>
+          {/* Row 2: Toggles — `filter-row` wraps on mobile */}
+          <div className="filter-row flex flex-wrap gap-4 items-center text-xs">
+            <button onClick={() => setFilterOpenNow(p => !p)} className={`px-3 py-1.5 rounded border font-bold transition-colors ${filterOpenNow ? 'bg-green-900/30 border-green-500 text-green-300' : 'border-gray-600 text-gray-300 hover:border-teal-600 hover:text-teal-300'}`}>
               {filterOpenNow ? '◉ OPEN NOW' : '○ OPEN NOW'}
             </button>
 
             <div className="h-4 w-px bg-gray-700"></div>
 
             <div className="flex items-center gap-2">
-              <span className="text-gray-600 uppercase font-bold tracking-wider">Lang:</span>
+              <span className="text-gray-300 uppercase font-bold tracking-wider">Lang:</span>
               <select
                 value={filterLanguage}
                 onChange={(e) => setFilterLanguage(e.target.value)}
-                className="bg-slate-900 border border-slate-700 text-gray-300 rounded px-2 py-1 outline-none focus:border-teal-500"
+                className="bg-slate-900 border border-slate-600 text-gray-200 rounded px-2 py-1 outline-none focus:border-teal-500"
               >
                 {availableLanguages.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
@@ -542,13 +467,13 @@ function App() {
             <div className="h-4 w-px bg-gray-700"></div>
 
             <div className="flex items-center gap-2">
-              <span className="text-gray-600 uppercase font-bold tracking-wider">Transport:</span>
+              <span className="text-gray-300 uppercase font-bold tracking-wider">Transport:</span>
               <div className="flex border border-slate-700 rounded overflow-hidden">
                 {(['walking', 'bus', 'car'] as TransportMode[]).map(m => (
                   <button
                     key={m}
                     onClick={() => setTransportMode(m)}
-                    className={`px-3 py-1 transition-colors ${transportMode === m ? 'bg-slate-700 text-white' : 'hover:bg-slate-800 text-gray-500'}`}
+                    className={`px-3 py-1 transition-colors ${transportMode === m ? 'bg-slate-600 text-white' : 'hover:bg-slate-700 text-gray-300'}`}
                   >
                     {m === 'walking' && '🚶'} {m === 'bus' && '🚌'} {m === 'car' && '🚗'}
                   </button>
@@ -562,76 +487,50 @@ function App() {
               <button onClick={() => { setEmergencyMode(p => !p); if (!emergencyMode) trackEvent('emergency'); }} className={`px-3 py-1.5 rounded text-xs font-bold transition-colors ${emergencyMode ? 'bg-red-600 text-white animate-pulse' : 'bg-red-900/30 text-red-500 border border-red-900'}`}>
                 {emergencyMode ? '! ACTIVE' : '! SOS'}
               </button>
-              <button onClick={() => setShowMap(p => !p)} className={`px-3 py-1.5 rounded text-xs border transition-colors ${showMap ? 'bg-teal-900/30 border-teal-500 text-teal-400' : 'border-gray-700 text-gray-500'}`}>
+              <button onClick={() => setShowMap(p => !p)} className={`px-3 py-1.5 rounded text-xs border font-bold transition-colors ${showMap ? 'bg-teal-900/30 border-teal-500 text-teal-300' : 'border-gray-600 text-gray-300 hover:border-teal-600 hover:text-teal-300'}`}>
                 MAP
               </button>
-              <button onClick={() => setShowStats(true)} className="px-2 py-0.5 rounded text-[10px] border border-gray-700 text-gray-500 hover:text-white">
+              <button onClick={() => setShowStats(true)} className="px-2 py-0.5 rounded text-[10px] border border-gray-600 text-gray-300 font-bold hover:text-white hover:border-gray-400">
                 STATS
               </button>
-              <button onClick={() => setIsCliMode(true)} className="px-2 py-0.5 rounded text-[10px] border border-gray-700 text-gray-500 hover:text-white">
+              <button onClick={() => setIsCliMode(true)} className="px-2 py-0.5 rounded text-[10px] border border-gray-600 text-gray-300 font-bold hover:text-white hover:border-gray-400">
                 CLI
+              </button>
+              <button
+                onClick={() => setIsDarkMode(p => !p)}
+                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                className="px-2 py-0.5 rounded text-[10px] border border-gray-600 text-gray-300 font-bold hover:text-white hover:border-gray-400"
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
+              <button
+                onClick={printEmergencySheet}
+                title="Print top-5 emergency resource sheet"
+                className="px-2 py-0.5 rounded text-[10px] border border-teal-700 text-teal-400 font-bold hover:bg-teal-900/30"
+              >
+                ⎙ PRINT
               </button>
             </div>
           </div>
         </div>
 
-        {/* Results List */}
+        {/* Results List — extracted to ResourceList component */}
         <div className="flex-1 overflow-auto p-4 space-y-2 bg-slate-900/50">
-          {filteredResources.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 p-8 space-y-4">
-              <div className="text-4xl opacity-20">∅</div>
-              <div className="text-lg font-bold">No resources found</div>
-              <div className="text-sm opacity-60 max-w-xs text-center">
-                Try adjusting filters or search query.
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {filteredResources.map((r, i) => {
-                const isSelected = i === selectedIndex && focusArea === 'CONTENT';
-                const open = isOpenNow(r.hours);
-                const transportTime = r.transport_estimates ? r.transport_estimates[transportMode] : 'N/A';
-
-                return (
-                  <div
-                    key={r.id}
-                    className={`
-                          card p-4 cursor-pointer flex justify-between items-center transition-all
-                          ${isSelected ? 'active shadow-[0_8px_30px_rgba(0,0,0,0.4),0_0_30px_rgba(6,214,160,0.3)]' : 'hover:shadow-[0_8px_30px_rgba(0,0,0,0.4),0_0_20px_rgba(6,214,160,0.15)]'}
-                          ${r.priority === 'High' ? 'border-l-4 border-l-pink-500 shadow-[0_0_15px_rgba(255,0,110,0.2)]' : ''}
-                       `}
-                    onClick={() => {
-                      setSelectedIndex(i);
-                      setFocusArea('CONTENT');
-                      setViewResource(r);
-                      trackEvent('views');
-                    }}
-                  >
-                    <div>
-                      <div className="mb-1">
-                        <span className={`text-lg font-bold block ${isSelected ? 'text-teal-300' : 'text-gray-200'}`} style={isSelected ? { textShadow: '0 0 10px rgba(6, 214, 160, 0.5)' } : {}}>{r.name}</span>
-                      </div>
-                      <div className="flex gap-2 items-center mb-2">
-                        {open ? <span className="text-[9px] text-green-300 border border-green-700 bg-green-900/30 px-1.5 py-0.5 rounded uppercase">Open</span> : <span className="text-[9px] text-red-300 border border-red-800 bg-red-900/30 px-1.5 py-0.5 rounded uppercase">Closed</span>}
-                        {r.is_emergency && <span className="text-[9px] text-pink-300 border border-pink-700 bg-pink-900/30 px-1.5 py-0.5 rounded uppercase">Urgent</span>}
-                        {r.capacity_status && <span className="text-[9px] text-teal-300 border border-teal-700 bg-teal-900/30 px-1.5 py-0.5 rounded uppercase">{r.capacity_status}</span>}
-                      </div>
-                      <div className="flex gap-4 text-sm text-gray-400">
-                        <span>{r.address.split(',')[0]}</span>
-                        <span className="text-gray-600">|</span>
-                        <span className="flex items-center gap-1">
-                          {transportMode === 'walking' ? '🚶' : transportMode === 'bus' ? '🚌' : '🚗'} {transportTime}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right text-sm text-gray-400">
-                      <div className="font-mono">{r.phone}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <ResourceList
+            filteredResources={filteredResources}
+            selectedIndex={selectedIndex}
+            setSelectedIndex={setSelectedIndex}
+            focusArea={focusArea}
+            setFocusArea={setFocusArea}
+            transportMode={transportMode}
+            cardRefs={cardRefs}
+            onSelectResource={(r, i) => {
+              setSelectedIndex(i);
+              setFocusArea('CONTENT');
+              setViewResource(r);
+              trackEvent('views');
+            }}
+          />
         </div>
       </div>
     </div >
@@ -689,146 +588,10 @@ function App() {
     </div>
   );
 
-  const renderDetail = () => {
-    if (!viewResource) return null;
-    const isFav = favorites.includes(viewResource.id);
-    const isOpen = isOpenNow(viewResource.hours);
 
-    return (
-      <div className="h-full w-full flex justify-center items-center overflow-hidden p-4 md:p-8">
-        <div className="w-full max-w-[95%] mx-auto flex flex-col h-full bg-slate-800/50 rounded-lg border border-slate-700/50 overflow-hidden relative shadow-2xl">
-          {emergencyMode && <EmergencyBanner />}
-
-          {/* Top Navigation Bar - Fixed */}
-          <div className="bg-slate-900/90 border-b border-gray-800 p-3 shrink-0 z-10 backdrop-blur flex justify-center items-center">
-            <button
-              onClick={() => { setViewResource(null); setFocusArea('CONTENT'); }}
-              className="text-gray-400 hover:text-white flex items-center gap-2 px-4 py-2 hover:bg-white/5 rounded transition-colors"
-            >
-              <span className="text-xs">◀</span> <span className="text-sm font-bold tracking-wider">BACK TO LIST</span>
-            </button>
-          </div>
-
-          {/* Scrollable Content Area */}
-          <div className="p-6 flex-1 overflow-auto custom-scrollbar">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2 text-center md:text-left">{viewResource.name}</h1>
-                <div className="flex flex-wrap gap-2 items-center justify-center md:justify-start">
-                  <span className={`badge ${isOpen ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>{isOpen ? 'OPEN NOW' : 'CLOSED'}</span>
-                  {viewResource.is_emergency && <span className="badge badge-alert">EMERGENCY</span>}
-                  {viewResource.id.startsWith('local-') && <span className="badge badge-primary bg-blue-900 text-blue-300">USER ADDED</span>}
-                  {viewResource.name.startsWith('[Demo]') && <span className="badge badge-primary bg-purple-900 text-purple-300">DEMO DATA</span>}
-                  <span className="badge badge-muted uppercase">{viewResource.type}</span>
-                  {viewResource.languages.map(l => (
-                    <span key={l} className="text-[10px] px-2 py-0.5 rounded border border-gray-700 text-gray-400">{l}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <button onClick={() => toggleFavorite(viewResource.id)} className={`text-xl font-bold ${isFav ? 'text-yellow-400' : 'text-gray-600 hover:text-amber-500'}`} style={isFav ? { color: '#facc15', textShadow: '0 0 10px rgba(250, 204, 21, 0.8)' } : {}}>
-                  {isFav ? '★ Saved' : '☆ Save'}
-                </button>
-                {viewResource.verified_by && (
-                  <div className="badge badge-muted bg-teal-900/30 text-teal-400 border border-teal-800">
-                    ✓ VERIFIED BY {viewResource.verified_by.toUpperCase()}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-8">
-              {/* Left Col */}
-              <div className="space-y-6">
-                <div className="card bg-slate-900/50 p-4 border-gray-800">
-                  <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 text-teal-500 text-center">Actions</h3>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <a href={`tel:${viewResource.phone}`} className="badge badge-primary justify-center py-3 text-sm hover:brightness-125 no-underline">
-                      📞 CALL
-                    </a>
-                    <button onClick={() => { navigator.clipboard.writeText(viewResource.address); showNotification('Address copied'); }} className="badge badge-muted justify-center py-3 text-sm hover:bg-slate-700">
-                      📋 COPY ADDR
-                    </button>
-                  </div>
-                  <button onClick={() => { alert('Connect to internet for standard maps.'); }} className="w-full badge badge-muted justify-center py-2 text-sm hover:bg-slate-700">
-                    🗺️ GET DIRECTIONS
-                  </button>
-                </div>
-
-                <div className="card bg-slate-900/50 p-4 border-gray-800">
-                  <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 text-center">Location & Contact</h3>
-                  <div className="mb-4">
-                    <AsciiMap resources={resources} selectedId={viewResource.id} userLocation={{ x: 5, y: 5 }} />
-                  </div>
-                  <div className="text-base text-gray-200 mb-2 text-center">{viewResource.address}</div>
-                  <div className="text-xl text-teal-400 font-mono mb-2 text-center">{viewResource.phone}</div>
-                </div>
+  // renderDetail extracted → now <ResourceDetail /> component
 
 
-                <div className="card bg-slate-900/50 p-4 border-gray-800">
-                  <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 text-center">Status</h3>
-                  <p className="mb-2 text-center"><span className="text-gray-400">Hours:</span> {viewResource.hours}</p>
-                  <p className="mb-2 text-center"><span className="text-gray-400">Capacity:</span> {viewResource.capacity_status || 'Unknown'}</p>
-                </div>
-              </div>
-
-              {/* Right Col */}
-              <div className="space-y-6">
-                <div className="card bg-slate-900/50 p-4 border-gray-800 h-full flex flex-col">
-                  <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 text-teal-500 text-center">Services Provided</h3>
-                  <ul className="space-y-2 mb-6 list-none" style={{ paddingLeft: 0, textAlign: 'center', listStyle: 'none' }}>
-                    {viewResource.services.map(s => (
-                      <li key={s} className="text-gray-300" style={{ textAlign: 'center', listStyleType: 'none' }}>
-                        › {s}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="card bg-slate-900/50 p-4 border-gray-800">
-                    <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 text-teal-500 text-center">Eligibility</h3>
-                    <p className="text-gray-400 text-sm mb-6 text-center">{viewResource.eligibility || 'Open to all.'}</p>
-
-                    {viewResource.micro_guide && (
-                      <div className="pro-guide-box">
-                        <div className="pro-guide-header">
-                          💡 PRO GUIDE
-                        </div>
-                        <div className="pro-guide-content">
-                          {viewResource.micro_guide}
-                        </div>
-                      </div>
-                    )}
-
-                    {viewResource.volunteer_info && (
-                      <div className="mb-6 p-3 border border-dashed border-gray-600 rounded bg-slate-900/80">
-                        <h3 className="text-xs font-bold text-amber-500 uppercase mb-2 text-center">🤝 Help This Cause</h3>
-                        <p className="text-sm text-gray-300 mb-1 text-center">Volunteers needed: <span className="text-white">{viewResource.volunteer_info.role}</span></p>
-                        <p className="text-xs text-gray-400 text-center">Contact: {viewResource.volunteer_info.contact}</p>
-                        {viewResource.donation_info && (
-                          <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-green-400">
-                            Donation: {viewResource.donation_info}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="mt-auto pt-6 border-t border-gray-800">
-                      <button onClick={() => reportIssue(viewResource.name)} className="text-xs text-red-400 hover:text-red-300 underline">
-                        ⚠ Report Issue / Suggest Edit
-                      </button>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-              <OfflineFooter className="mt-8 pt-4 border-t border-gray-800 opacity-50" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   if (view === 'INTRO') {
     return renderIntro();
@@ -844,28 +607,31 @@ function App() {
 
   return (
     <TerminalLayout header={emergencyMode ? 'EMERGENCY MODE' : 'RESOURCE HUB'}>
-      <NotificationBanner />
+      <NotificationBanner message={notification} />
       {showHelp && <HelpOverlay />}
       {showStats && <StatsDashboard onClose={() => setShowStats(false)} />}
       {isCliMode && <CliMode onExit={() => setIsCliMode(false)} />}
       {showSubmission && <ResourceSubmission onClose={() => setShowSubmission(false)} onSubmit={handleAddResource} />}
 
       {!viewResource && !isCliMode && renderConsole()}
-      {viewResource && !isCliMode && renderDetail()}
+      {viewResource && !isCliMode && (
+        <ResourceDetail
+          resource={viewResource}
+          isFav={favorites.includes(viewResource.id)}
+          emergencyMode={emergencyMode}
+          onBack={() => { setViewResource(null); setFocusArea('CONTENT'); }}
+          onToggleFavorite={toggleFavorite}
+          onShare={shareResource}
+          onReport={reportIssue}
+          showNotification={showNotification}
+        />
+      )}
 
       {hasConsented === null && <ConsentDialog onConsent={handleConsent} />}
     </TerminalLayout>
   );
 
 }
-
-
-
-const OfflineFooter = ({ className }: { className?: string }) => (
-  <div className={`text-xs text-gray-600 flex justify-between items-center ${className}`}>
-    <div className="flex items-center gap-2"><span className="inline-block w-2 h-2 rounded-full bg-green-500 blink"></span><span>OFFLINE MODE: ON</span></div>
-    <div>DATA: DEC 2025</div>
-  </div>
-);
+// OfflineFooter and EmergencyBanner are inline in ResourceDetail.tsx
 
 export default App;

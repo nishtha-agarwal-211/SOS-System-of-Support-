@@ -3,36 +3,85 @@ interface ConsentDialogProps {
 }
 
 export const ConsentDialog = ({ onConsent }: ConsentDialogProps) => (
-    <div className="absolute inset-0 z-[60] bg-black/95 flex items-center justify-center p-6">
-        <div className="border border-green-800 bg-black max-w-lg w-full p-6 shadow-2xl relative">
-            <div className="absolute top-0 left-0 w-full h-1 bg-green-900"></div>
+    <div style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.96)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        zIndex: 60,
+    }}>
+        <div style={{
+            border: '1px solid #1a3a2a',
+            backgroundColor: '#000',
+            maxWidth: '32rem',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.8)',
+            position: 'relative',
+        }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', backgroundColor: '#14532d' }}></div>
 
-            <h2 className="text-xl font-bold text-green-500 mb-4 font-mono tracking-wide">
+            <h2 style={{
+                fontSize: '1.25rem',
+                fontWeight: 'bold',
+                color: '#22c55e',
+                marginBottom: '16px',
+                fontFamily: 'monospace',
+                letterSpacing: '0.05em',
+            }}>
                 &gt; SYSTEM NOTICE: PRIVACY
             </h2>
 
-            <div className="text-gray-300 font-mono text-sm space-y-4 mb-8">
-                <p>
-                    This terminal operates <strong className="text-white">offline</strong>.
-                    To enable features like <span className="text-amber-500">Favorites</span>, <span className="text-amber-500">History</span>, and <span className="text-amber-500">Reports</span>,
+            <div style={{ color: '#d1d5db', fontFamily: 'monospace', fontSize: '0.875rem', marginBottom: '32px' }}>
+                <p style={{ marginBottom: '16px' }}>
+                    This terminal operates <strong style={{ color: '#fff' }}>offline</strong>.
+                    To enable <span style={{ color: '#f59e0b' }}>Favorites</span>, <span style={{ color: '#f59e0b' }}>History</span>, and <span style={{ color: '#f59e0b' }}>Reports</span>,
                     we store small amounts of data locally on your device.
                 </p>
-                <p className="text-gray-500 text-xs border-l-2 border-green-900 pl-3">
+                <p style={{ color: '#6b7280', fontSize: '0.75rem', borderLeft: '2px solid #14532d', paddingLeft: '12px' }}>
                     No personal data is ever sent to a server.
                     You remain anonymous.
                 </p>
             </div>
 
-            <div className="flex gap-4">
+            <div style={{ display: 'flex', gap: '16px' }}>
                 <button
                     onClick={() => onConsent(true)}
-                    className="flex-1 bg-green-900/30 border border-green-600 text-green-400 py-3 text-sm font-bold hover:bg-green-900/50 hover:text-white transition-colors uppercase"
+                    style={{
+                        flex: 1,
+                        backgroundColor: 'rgba(20, 83, 45, 0.3)',
+                        border: '1px solid #16a34a',
+                        color: '#4ade80',
+                        padding: '12px',
+                        fontSize: '0.875rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        fontFamily: 'inherit',
+                        transition: 'background 0.2s',
+                    }}
                 >
-                    [ Acknowledge & Enable ]
+                    [ Acknowledge &amp; Enable ]
                 </button>
                 <button
                     onClick={() => onConsent(false)}
-                    className="px-4 py-3 text-sm text-gray-500 hover:text-white border border-transparent hover:border-gray-700 uppercase"
+                    style={{
+                        padding: '12px 16px',
+                        fontSize: '0.875rem',
+                        color: '#6b7280',
+                        border: '1px solid transparent',
+                        backgroundColor: 'transparent',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        fontFamily: 'inherit',
+                        transition: 'color 0.2s, border-color 0.2s',
+                    }}
                 >
                     [ Disable Storage ]
                 </button>

@@ -21,7 +21,6 @@ export const StatsDashboard = ({ onClose }: { onClose: () => void }) => {
     const pSearch = getPercent(stats.searches);
     const pView = getPercent(stats.views);
     const pFav = getPercent(stats.favorites);
-    const pEmer = getPercent(stats.emergency);
 
     // CSS Conic Gradient for Pie Chart
     // Order: Search (Amber) -> View (Teal) -> Fav (Pink) -> Emer (Red)

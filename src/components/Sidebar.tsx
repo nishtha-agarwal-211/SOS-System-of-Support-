@@ -16,19 +16,43 @@ export const Sidebar = ({ selectedType, onSelect, isFocused }: SidebarProps) => 
                 <button
                     key={t.id}
                     onClick={() => onSelect(t.id)}
-                    className={`
-            text-left px-3 py-3 font-mono text-sm uppercase tracking-wider transition-all
-            flex items-center gap-3 rounded-lg relative overflow-hidden font-bold
-            ${selectedType === t.id
-                            ? 'bg-gradient-to-r from-teal-900/40 to-teal-800/30 text-white shadow-lg border border-teal-700/50'
-                            : 'bg-slate-800/60 text-white/90 hover:text-white hover:bg-slate-700/60 border border-slate-700/30'}
-            ${selectedType === t.id && isFocused ? 'border-l-4 border-teal-400 shadow-[0_0_20px_rgba(6,214,160,0.3)]' : 'border-l-4 border-transparent'}
-          `}
+                    className="font-mono text-sm uppercase font-bold flex items-center relative"
                     style={selectedType === t.id ? {
-                        boxShadow: '0 4px 15px rgba(6, 214, 160, 0.2), inset 0 1px 0 rgba(6, 214, 160, 0.3)',
-                        textShadow: '0 0 10px rgba(255, 255, 255, 0.8), 0 2px 4px rgba(0, 0, 0, 0.9)'
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        width: '100%',
+                        padding: '0.75rem 0.75rem 0.75rem 0.625rem',
+                        textAlign: 'left',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        background: 'linear-gradient(135deg, rgba(6, 214, 160, 0.13), rgba(6, 214, 160, 0.05))',
+                        border: '1px solid rgba(6, 214, 160, 0.28)',
+                        borderLeft: isFocused ? '4px solid #06d6a0' : '4px solid rgba(6, 214, 160, 0.45)',
+                        boxShadow: isFocused
+                            ? '0 4px 20px rgba(6, 214, 160, 0.25), -2px 0 12px rgba(6, 214, 160, 0.35)'
+                            : '0 2px 8px rgba(6, 214, 160, 0.08)',
+                        color: '#ffffff',
+                        textShadow: '0 0 10px rgba(255, 255, 255, 0.8), 0 2px 4px rgba(0, 0, 0, 0.9)',
+                        transition: 'all 0.2s ease',
                     } : {
-                        textShadow: '0 2px 4px rgba(0, 0, 0, 0.9)'
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        width: '100%',
+                        padding: '0.75rem 0.75rem 0.75rem 0.625rem',
+                        textAlign: 'left',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        background: 'rgba(30, 41, 59, 0.6)',
+                        border: '1px solid rgba(61, 74, 110, 0.3)',
+                        borderLeft: '4px solid transparent',
+                        boxShadow: 'none',
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        textShadow: '0 2px 4px rgba(0, 0, 0, 0.9)',
+                        transition: 'all 0.2s ease',
                     }}
                 >
                     <span className="text-xl transition-transform duration-300 hover:scale-110" style={selectedType === t.id ? { filter: 'drop-shadow(0 0 8px rgba(6, 214, 160, 0.6))' } : {}}>{t.icon}</span>

@@ -1,0 +1,23 @@
+{
+  "name": "SOS: System of Support",
+  "short_name": "SOS",
+  "description": "Offline-first community resource finder for food, shelter, hospitals, and emergency help",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#06d6a0",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/sos.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "social", "health"],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "scope": "/"
+}
+
